@@ -1,2 +1,2 @@
 # leavemanagementsystem
-Leave management system for employee
+Leave management system for employees
