@@ -3,7 +3,7 @@
 namespace App\Console\Commands;
 
 use App\User;
-use App\UserPresent;
+use App\Attendance;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
 
@@ -45,20 +45,19 @@ class LeaveTransaction extends Command
         // Create new date with that date time
         // Loop through the date by adding 1 more day and calculate the leaves accordingly
         // till current date is reached
-        $lastProcessedDate = UserPresent::where("status", '=', 'PENDING')
+        $lastProcessedDate = Attendance::where("status", '=', 'PENDING')
             ->orderBy('created_at', 'ASC')
             ->limit(1)
             ->first();
         if (!$lastProcessedDate) {
             return;
         }
-
         //$lastProcessedDate = new Carbon($lastProcessedDate->action_time);
-        $lastProcessedDate = new Carbon('31 jan 2017');
+        $lastProcessedDate = new Carbon('2 feb 2017');
         $currentDate = Carbon::now();
 
         // Process all the entries from that date on to current day
-        while($lastProcessedDate < $currentDate) {
+        while ($lastProcessedDate < $currentDate) {
 
             $dayStart = new Carbon($lastProcessedDate->format("Y-m-d") . " 00:00:00", self::timezone);
             $dayStart->tz('UTC');
@@ -87,30 +86,29 @@ class LeaveTransaction extends Command
 //                $dayEnd
 //            ]);
 
-
             // Get user details attendance details for particular day
-            $query = UserPresent::whereIn('action_type', ['LOGIN', 'LOGOUT'])
+            $query = Attendance::whereIn('action_type', ['LOGIN', 'LOGOUT'])
                 ->where('action_time', '>=', $dayStart)
                 ->where('action_time', '<=', $dayEnd)
                 ->orderBy('user_id', 'asc')
                 ->orderBy('action_time', 'asc');
-
             $loginDetails = $query->get();
 
-            $loginDetails->each(function($details) use (&$arr) {
+            $loginDetails->each(function ($details) use (&$arr) {
                 $details = $details->toArray();
 
                 if (!isset($arr[$details["user_id"]])) {
                     if ($details["action_type"] == "LOGOUT") {
-                       return;
+                        return;
                     }
                     $arr[$details["user_id"]] = [];
                 }
+
                 $lastDetails = (@array_slice($arr[$details["user_id"]], -1)[0]);
                 if ($lastDetails && $lastDetails["action_type"] == $details["action_type"]) {
-                    $key = key(array_slice($arr[$details["user_id"]], -1, 1 , true));
+                    $key = key(array_slice($arr[$details["user_id"]], 0, 1, true));
 
-                    if($details["action_type"] == "LOGIN") {
+                    if ($details["action_type"] == "LOGIN") {
                         $arr[$details["user_id"]][$key] = $details;
                     }
                     if ($details["action_type"] == "LOGOUT") {
@@ -124,149 +122,34 @@ class LeaveTransaction extends Command
             foreach ($arr as $userId => $userAttendance) {
                 $lastDetails = array_slice($userAttendance, -1)[0];
                 if ($lastDetails["action_type"] == "LOGIN") {
-                    $key = key(array_slice($userAttendance, -1, 1 , true));
+                    $key = key(array_slice($userAttendance, -1, 1, true));
                     unset($arr[$userId][$key]);
                 }
             }
 
-            //dd($arr);
-
             foreach ($arr as $userId => $userAttendance) {
 
                 $isFullDay = false;
-                $hasLoginBeforeOfficialStart = !!count(array_filter($userAttendance, function($attendance) use ($officialDayStartWithBuffer) {
+                $hasLoginBeforeOfficialStart = !!count(array_filter($userAttendance, function ($attendance) use ($officialDayStartWithBuffer) {
                     return $attendance["action_type"] == "LOGIN" && new Carbon($attendance["action_time"]) <= $officialDayStartWithBuffer;
                 }));
 
-                $hasLogoutAfterOfficialEnd = !!count(array_filter($userAttendance, function($attendance) use ($officialDayEndWithBuffer) {
+                $hasLogoutAfterOfficialEnd = !!count(array_filter($userAttendance, function ($attendance) use ($officialDayEndWithBuffer) {
                     return $attendance["action_type"] == "LOGOUT" && new Carbon($attendance["action_time"]) >= $officialDayEndWithBuffer;
                 }));
 
-                if($hasLoginBeforeOfficialStart && $hasLogoutAfterOfficialEnd)  {
-                    // @todo: Start from here
+                if ($hasLoginBeforeOfficialStart && $hasLogoutAfterOfficialEnd) {
                     $isFullDay = true;
+
+                    $temp1 = Carbon::parse($userAttendance[1]['action_time']);
+                    $temp2 = Carbon::parse($userAttendance[0]['action_time']);
+                    $temp = $temp1->diffInHours($temp2);
+                    
+                    dd($temp);
                 }
             }
 
         }
-
-
-//       // $this->sickCasualLeaves();
-//        $users = UserPresent::where('action_type', '=', 'LOGIN')
-//            ->where('action_time', 'like', Carbon::now()->toDateString() . '%')->groupby('user_id')->get();
-//        foreach ($users as $user) {
-//
-//
-//            $fullDayLogin = UserPresent::where('action_type', '=', 'LOGIN')
-//                ->whereBetween('action_time', [Carbon::now()->setTime(3, 30, 0), Carbon::now()->setTime(4, 30, 0)])->groupby('user_id')->get();
-//
-//            // Check if user was present whole day
-//            // If not then check if user was present for first half
-//            // else check if user was present for second half
-//
-//            /*
-//             * This is for First Half day Privilege Leave
-//             */
-//
-//            $firstHalfLogin = UserPresent::where('action_type', '=', 'LOGIN')
-//                ->whereBetween('action_time', [Carbon::now()->setTime(3, 30, 0), Carbon::now()->setTime(4, 30, 0)])->groupby('user_id')->get();
-//
-//            $firstHalfLogout = UserPresent::where('action_type', '=', 'LOGOUT')
-//                ->whereBetween('action_time', [Carbon::now()->setTime(7, 00, 0), Carbon::now()->setTime(8, 30, 0)])->groupby('user_id')->get();
-//
-//            if ($firstHalfLogin && $firstHalfLogout) {
-//                $firstHalfPrivilegeLeave = UserPresent::where('action_type', '=', 'LOGOUT')
-//                    ->whereBetween('action_time', [Carbon::now()->setTime(7, 00, 0), Carbon::now()->setTime(8, 30, 0)])->groupby('user_id')->get();
-//
-//                foreach ($firstHalfPrivilegeLeave as $firstHalfLeave) {
-//                    if ($firstHalfLeave->toArray()) {
-//                        $firstHalfleave = new \App\LeaveTransaction();
-//                        $firstHalfleaveData = \App\LeaveTransaction::where('user_id', '=', $firstHalfLeave->user_id)
-//                            ->where('leave_type', '=', 'PRIVILEGE LEAVE')
-//                            ->get();
-//                        if ($firstHalfleaveData->toArray()) {
-//                            $firstHalfPrivilegeLeaveLedger = $firstHalfleaveData[0]->ledger;
-//                        } else {
-//                            $firstHalfPrivilegeLeaveLedger = 0;
-//                        }
-//                        $firstHalfleave->user_id = $firstHalfLeave->user_id;
-//                        $firstHalfleave->leave_type = 'PRIVILEGE LEAVE';
-//                        $firstHalfleave->value = 0.025;
-//                        $firstHalfleave->type = 'CREDIT';
-//                        $firstHalfleave->ledger = $firstHalfleave->value + $firstHalfPrivilegeLeaveLedger;
-//
-//                        $firstHalfleave->save();
-//                    }
-//                }
-//            }
-            /*
-             * This is for Second Half day Privilege Leave
-             */
-
-//            $secondHalfLogin = UserPresent::where('action_type', '=', 'LOGIN')
-//                ->whereBetween('action_time', [Carbon::now()->setTime(8, 30, 0), Carbon::now()->setTime(9, 00, 0)])->groupby('user_id')->get();
-//
-//            if ($secondHalfLogin) {
-//                foreach ($secondHalfLogin as $secondHalfLoginUsers) {
-//                    //dd($secondHalfLoginUsers['user_id']);
-//                    $secondHalfPrivilegeLeave = UserPresent::where('action_type', '=', 'LOGOUT')
-//                        ->where('user_id', '=', $secondHalfLoginUsers['user_id'])
-//                        ->whereBetween('action_time', [Carbon::now()->setTime(12, 30, 0), Carbon::now()->setTime(16, 30, 0)])
-//                        ->groupby('user_id')
-//                        ->get();
-//                    foreach ($secondHalfPrivilegeLeave as $secondHalfLeave) {
-//                        if ($secondHalfLeave->toArray()) {
-//                            $secondHalfleave = new \App\LeaveTransaction();
-//                            $secondHalfleaveData = \App\LeaveTransaction::where('user_id', '=', $secondHalfLeave->user_id)
-//                                ->where('leave_type', '=', 'PRIVILEGE LEAVE')
-//                                ->get();
-//                            if ($secondHalfleaveData->toArray()) {
-//                                $secondHalfPrivilegeLeaveLedger = $secondHalfleaveData[0]->ledger;
-//                            } else {
-//                                $secondHalfPrivilegeLeaveLedger = 0;
-//                            }
-//                            $secondHalfleave->user_id = $secondHalfLeave->user_id;
-//                            $secondHalfleave->leave_type = 'PRIVILEGE LEAVE';
-//                            $secondHalfleave->value = 0.025;
-//                            $secondHalfleave->type = 'CREDIT';
-//                            $secondHalfleave->ledger = $secondHalfleave->value + $secondHalfPrivilegeLeaveLedger;
-//                            $secondHalfleave->save();
-//                        }
-//                    }
-//                }
-//            }
-//            /*
-//             * This is for Full day Privilege Leave
-//             */
-//
-//            $fullDay = UserPresent::where('action_type', '=', 'LOGIN')
-//                ->whereBetween('action_time', [Carbon::now()->setTime(3, 30, 0), Carbon::now()->setTime(4, 30, 0)])
-//                ->groupby('user_id')
-//                ->get();
-//            foreach ($fullDay as $fullDayPrivilegeLeave) {
-//                $fullDayUsers[] = UserPresent::where('user_id', '=', $user->user_id)
-//                    ->where('action_type', '=', 'LOGOUT')
-//                    ->whereBetween('action_time', [Carbon::now()->setTime(12, 30, 0), Carbon::now()->setTime(16, 30, 0)])
-//                    ->groupby('user_id')
-//                    ->get();
-//                $fullDayPrivilege = new \App\LeaveTransaction();
-//                $fullDayPrivilegeData = \App\LeaveTransaction::where('user_id', '=', $fullDayPrivilegeLeave->user_id)
-//                    ->where('leave_type', '=', 'PRIVILEGE LEAVE')
-//                    ->get();
-//                if ($fullDayPrivilegeData->toArray()) {
-//                    $fullDayPrivilegeLeaveLedger = $fullDayPrivilegeData[0]->ledger;
-//                } else {
-//                    $fullDayPrivilegeLeaveLedger = 0;
-//                }
-//                $fullDayPrivilege->user_id = $user->user_id;
-//                $fullDayPrivilege->leave_type = 'PRIVILEGE LEAVE';
-//                $fullDayPrivilege->value = 0.05;
-//                $fullDayPrivilege->type = 'CREDIT';
-//                $fullDayPrivilege->ledger = $fullDayPrivilege->value + $fullDayPrivilegeLeaveLedger;
-//
-//                $fullDayPrivilege->save();
-//            }
-//        }
     }
 
     public function sickCasualLeaves()

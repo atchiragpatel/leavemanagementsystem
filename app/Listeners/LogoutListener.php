@@ -2,7 +2,7 @@
 
 namespace App\Listeners;
 
-use App\UserPresent;
+use App\Attendance;
 use Carbon\Carbon;
 use Illuminate\Auth\Events\Logout;
 use Illuminate\Queue\InteractsWithQueue;
@@ -34,12 +34,12 @@ class LogoutListener extends Listener
     {
         $this->user_id = $logoutUser->user->id;
 
-//        $logout = UserPresent::where(['user_id' => $this->user_id, 'logout_time' => null])->first();
+//        $logout = Attendance::where(['user_id' => $this->user_id, 'logout_time' => null])->first();
 //        if ($logout) {
 //            $logout->logout_time = Carbon::now();
 //            $logout->save();
 //        }
-        $logout = new UserPresent();
+        $logout = new Attendance();
         $logout->user_id = $this->user_id;
         $logout->action_type = 'LOGOUT';
         $logout->action_time = Carbon::now();

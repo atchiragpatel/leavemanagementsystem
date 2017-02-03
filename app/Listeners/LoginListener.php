@@ -2,7 +2,7 @@
 
 namespace App\Listeners;
 
-use App\UserPresent;
+use App\Attendance;
 use Carbon\Carbon;
 use Illuminate\Auth\Events\Login;
 use Illuminate\Queue\InteractsWithQueue;
@@ -34,7 +34,7 @@ class LoginListener extends Listener
     {
         $this->user_id = $loginUser->user->id;
 
-        $login = new UserPresent();
+        $login = new Attendance();
         $login->user_id = $this->user_id;
         $login->action_type = 'LOGIN';
         $login->action_time = Carbon::now();

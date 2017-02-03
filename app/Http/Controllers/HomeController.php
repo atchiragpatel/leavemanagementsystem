@@ -3,7 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\LeaveTransaction;
-use App\UserPresent;
+use App\Attendance;
 use Carbon\Carbon;
 use Illuminate\Foundation\Auth\User;
 use Illuminate\Http\Request;
@@ -32,7 +32,7 @@ class HomeController extends Controller
      */
     public function index()
     {
-        dd($this->calcAbsoluteLeaves('PRIVILEGE LEAVE', 1));
+        //dd($this->calcAbsoluteLeaves('PRIVILEGE LEAVE', 1));
         //$days90 = Carbon::now()->addDays(90);
         //dd($this->calcAbsoluteLeaves('SICK', 1));
         //$this->calcBalancedLeave("PRIVILEGE LEAVE", 13, 29);
@@ -278,7 +278,7 @@ class HomeController extends Controller
                 }
 
                 // Get first entry from database logs
-                $firstLog = UserPresent::where('user_id','=',$userId)->first();
+                $firstLog = Attendance::where('user_id','=',$userId)->first();
 
                 // Get the difference of days from the non-logged days
                 // i.e. JD - ( First Log date - 1) in days difference
