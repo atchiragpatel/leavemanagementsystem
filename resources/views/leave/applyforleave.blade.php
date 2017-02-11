@@ -73,7 +73,7 @@
             <div class="form-group row">
                 <label class="col-xs-2 col-form-label">Total Days</label>
                 <div class="col-xs-10">
-                    <input id="total_days"  type="varchar" name="value" class="form-control" placeholder="Total Days"
+                    <input id="total_days" type="varchar" name="value" class="form-control" placeholder="Total Days"
                            disabled>
                 </div>
             </div>
@@ -90,7 +90,16 @@
                 </div>
             </div>
 
-            <input type="submit" value="Request" class="btn btn-primary"/>
+            <div class="form-group row">
+                <div class="col-xs-2">
+                    <input type="submit" value="Request" class="btn btn-primary"/>
+                </div>
+                <div class="col-xs-10" id="displayData">
+                    <p>
+
+                    </p>
+                </div>
+            </div>
         </form>
     </div>
     <script type="text/javascript">
@@ -99,7 +108,7 @@
             var date2 = new Date(to_date);
             var timeDiff = Math.abs(date2.getTime() - date1.getTime());
             var diffDays = Math.ceil(timeDiff / (1000 * 3600 * 24));
-            document.getElementById(targetId).value = diffDays+1;
+            document.getElementById(targetId).value = diffDays + 1;
         }
     </script>
     <script>
@@ -117,8 +126,7 @@
                         privilege_leave: parseFloat(document.getElementById('privilegeleave').textContent)
                     },
                     success: function (data) {
-                        //$("#msg").html(data.msg);
-                        alert(data);
+                        $("#displayData").text(data);
                     }
                 });
             });

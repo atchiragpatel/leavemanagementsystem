@@ -239,86 +239,78 @@ class LeaveTransactionController extends Controller
          */
         if ($totalLeave >= 4) {
 
-            $chiragTemp = $totalLeave > $value ? ($totalLeave - $value) : 0;
+            $sandwitchLeave = $totalLeave > $value ? ($totalLeave - $value) : 0;
+            $returnData = [];
             switch ($leave_type) {
                 case ("SICK LEAVE"):
-                    if ($sick_leave >= $totalLeave) {
-                        return [
-                            "Apply for =>". ' ' . $value,
-                            "Total Leave count =>". ' ' . $totalLeave,
-                            "Deduct from sick leave =>" . ' ' . $totalLeave,
-                        ];
-                    } else {
-                        $temp = $totalLeave - $sick_leave;
-                        if ($privilege_leave >= $temp) {
-                            return [
-                                "Apply for =>". ' ' . $value,
-                                "Total Leave count =>". ' ' . $totalLeave,
-                                "Deduct from sick leave =>" . ' ' . $sick_leave,
-                                "Deduct from privilege leave =>" . ' ' . $temp
-                            ];
+                    if ($value <= $sick_leave) {
+                        $returnData[] = ["Deduct from sick leave =>" . ' ' . $value];
+                        if ($sandwitchLeave <= $privilege_leave) {
+                            $returnData[] = "Deduct from privilege leave =>" . ' ' . $sandwitchLeave;
                         } else {
-                            $temp1 = $temp - $privilege_leave;
-                            return [
-                                "Apply for =>". ' ' . $value,
-                                "Total Leave count =>". ' ' . $totalLeave,
-                                "Deduct from sick leave =>" . ' ' . $sick_leave,
+                            $remainingLeave = $sandwitchLeave - $privilege_leave;
+                            $returnData[] = [
                                 "Deduct from privilege leave =>" . ' ' . $privilege_leave,
-                                "Deduct from leave without pay =>" . ' ' . $temp1
+                                "Deduct from leave without pay =>" . ' ' . $remainingLeave
+                            ];
+                        }
+                    } elseif ($value > $sick_leave) {
+                        $sickSandwitch = $value - $sick_leave;
+                        $returnData[] = "Deduct from sick leave =>" . ' ' . $sick_leave;
+                        if (($sandwitchLeave + $sickSandwitch) <= $privilege_leave) {
+                            $returnData[] = "Deduct from privilege leave =>" . ' ' . ($sandwitchLeave + $sickSandwitch);
+                        } else {
+                            $remainingLeave = ($sandwitchLeave + $sickSandwitch) - $privilege_leave;
+                            $returnData[] = [
+                                "Deduct from privilege leave =>" . ' ' . $privilege_leave,
+                                "Deduct from leave without pay =>" . ' ' . $remainingLeave
                             ];
                         }
                     }
+                    return $returnData;
                     break;
                 case ("CASUAL LEAVE"):
-                    if ($casual_leave >= $totalLeave) {
-                        return [
-                            "Apply for =>". ' ' . $value,
-                            "Total Leave count =>". ' ' . $totalLeave,
-                            "Deduct from casual leave =>" . ' ' . $totalLeave,
-                        ];
-                    } else {
-                        $temp = $totalLeave - $casual_leave;
-                        if ($privilege_leave >= $temp) {
-                            return [
-                                "Apply for =>". ' ' . $value,
-                                "Total Leave count =>". ' ' . $totalLeave,
-                                "Deduct from casual leave =>" . ' ' . $casual_leave,
-                                "Deduct from privilege leave =>" . ' ' . $temp
-                            ];
+                    if ($value <= $casual_leave) {
+                        $returnData[] = "Deduct from casual leave =>" . ' ' . $value;
+                        if ($sandwitchLeave <= $privilege_leave) {
+                            $returnData[] = "Deduct from privilege leave =>" . ' ' . $sandwitchLeave;
                         } else {
-                            $temp1 = $temp - $privilege_leave;
-                            return [
-                                "Apply for =>". ' ' . $value,
-                                "Total Leave count =>". ' ' . $totalLeave,
-                                "Deduct from casual leave =>" . ' ' . $casual_leave,
+                            $remainingLeave = $sandwitchLeave - $privilege_leave;
+                            $returnData[] = [
                                 "Deduct from privilege leave =>" . ' ' . $privilege_leave,
-                                "Deduct from leave without pay =>" . ' ' . $temp1
+                                "Deduct from leave without pay =>" . ' ' . $remainingLeave
+                            ];
+                        }
+                    } elseif ($value > $casual_leave) {
+                        $casualSandwitch = $value - $casual_leave;
+                        $returnData[] = "Deduct from casual leave =>" . ' ' . $casual_leave;
+                        if (($sandwitchLeave + $casualSandwitch) <= $privilege_leave) {
+                            $returnData[] = "Deduct from privilege leave =>" . ' ' . ($sandwitchLeave + $casualSandwitch);
+                        } else {
+                            $remainingLeave = ($sandwitchLeave + $casualSandwitch) - $privilege_leave;
+                            $returnData[] = [
+                                "Deduct from privilege leave =>" . ' ' . $privilege_leave,
+                                "Deduct from leave without pay =>" . ' ' . $remainingLeave
                             ];
                         }
                     }
+                    return $returnData;
                     break;
                 case ("PRIVILEGE LEAVE"):
-                    if ($privilege_leave >= $totalLeave) {
-                        return [
-                            "Apply for =>". ' ' . $value,
-                            "Total Leave count =>". ' ' . $totalLeave,
-                            "Deduct from privilege leave =>" . ' ' . $totalLeave,
-                        ];
+                    if ($totalLeave <= $privilege_leave) {
+                        $returnData[] = "Deduct from privilege leave =>" . ' ' . $value;
                     } else {
-                        $temp = $totalLeave - $privilege_leave;
-                        return [
-                            "Apply for =>". ' ' . $value,
-                            "Total Leave count =>". ' ' . $totalLeave,
+                        $remainingLeave = $totalLeave - $privilege_leave;
+                        $returnData[] = [
                             "Deduct from privilege leave =>" . ' ' . $privilege_leave,
-                            "Deduct from leave without pay =>" . ' ' . $temp
+                            "Deduct from leave without pay =>" . ' ' . $remainingLeave
                         ];
                     }
+                    return $returnData;
                     break;
                 case ("LEAVE WITHOUT PAY"):
                     return [
-                        "Apply for =>". ' ' . $value,
-                        "Total Leave count =>". ' ' . $totalLeave,
-                        "Deduct from leave without pay =>" . ' ' . $totalLeave,
+                        "Deduct from leave without pay =>" . ' ' . $totalLeave
                     ];
                     break;
                 default :
@@ -326,6 +318,5 @@ class LeaveTransactionController extends Controller
             }
         }
         return "Tu bachi gayo";
-        //return $temp;
     }
 }
