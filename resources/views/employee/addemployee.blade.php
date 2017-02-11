@@ -54,6 +54,13 @@
                 </div>
             </div>
 
+            <div class="form-group row">
+                <label class="col-xs-2 col-form-label">Leave Taken Till Date</label>
+                <div class="col-xs-10">
+                    <input type="number" name="leave_taken_till_date" class="form-control" placeholder="Enter the amount of leaves">
+                </div>
+            </div>
+
             <input type="submit" value="Save" class="btn btn-primary"/>
         </form>
     </div>

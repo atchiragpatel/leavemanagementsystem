@@ -19,15 +19,10 @@ class CreateLeaveTransaction extends Migration
                 $table->integer('user_id')->nullable();
                 $table->string('leave_type')->nullable();
                 $table->float('value')->nullable();
-                $table->dateTime('from_date')->nullable();
-                $table->dateTime('to_date')->nullable();
                 $table->string('type')->nullable();
                 $table->string('status')->nullable();
                 $table->string('ledger')->nullable();
-                $table->text('user_comments')->nullable();
-                $table->text('manager_comments')->nullable();
                 $table->timestamps();
-                $table->softDeletes();
             });
         }
     }

@@ -16,7 +16,7 @@
                                 Festival Holidays</a>
                         </div>
                         <div class="panel-body">
-                            View Leave Requests <a href="#" class="btn btn-primary pull-right mb-2 mt-2">View Leave
+                            View Leave Requests <a href="leaverequest" class="btn btn-primary pull-right mb-2 mt-2">View Leave
                                 Requests</a>
                         </div>
                     </div>

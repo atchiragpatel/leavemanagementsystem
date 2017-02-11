@@ -40,7 +40,7 @@
                 <label class="col-xs-2 col-form-label">Joining Date</label>
                 <div class="col-xs-10">
                     <input type="date" name="doj" value="<?php echo $user['doj'] ?>" class="form-control"
-                           placeholder="Enter employee date of joining">
+                           placeholder="Enter employee date of joining" disabled>
                 </div>
             </div>
 

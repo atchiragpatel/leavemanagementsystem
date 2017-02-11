@@ -35,6 +35,7 @@ class CreateUserTable extends Migration
                 $table->string('emergency_contact_name')->nullable();
                 $table->string('emergency_contact_relation')->nullable();
                 $table->string('emergency_contact_number')->nullable();
+                $table->strinf('leave_taken_till_date')->nullable();
                 $table->rememberToken();
                 $table->timestamps();
             });

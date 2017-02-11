@@ -49,7 +49,20 @@ Route::get('/updatebankdetails/{id}', 'UserController@updateBankDetails');
 Route::post('/storeupdatedbankdetails/{id}', 'UserController@storeUpdatedBankDetails');
 
 //User Documents Routes
-Route::get('/listofdocuments', 'UserDocumnets@DocumnetsList');
+//Route::get('/listofdocuments', 'UserDocumnets@DocumnetsList');
 
 //User Leave Routes
-Route::get('/applyforleave','LeaveTransactionController@applyForLeave');
+Route::get('/applyforleave', 'LeaveTransactionController@applyForLeave');
+Route::post('/submitleave', 'LeaveTransactionController@submitLeave');
+
+/*
+ * This Route is for admin where admin can see the leave request
+ */
+Route::get('/leaverequest', 'LeaveTransactionController@leaveRequest');
+Route::get('/leaveapprove/{id}', 'LeaveTransactionController@leaveApprove');
+Route::get('/leavereject/{id}', 'LeaveTransactionController@leaveReject');
+/*
+ * Ajax Route
+ */
+Route::get('/applyforleave-response', 'LeaveTransactionController@isSandwitch');
+

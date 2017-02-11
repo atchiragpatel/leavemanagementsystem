@@ -52,19 +52,19 @@ class LeaveTransaction extends Command
         if (!$lastProcessedDate) {
             return;
         }
-        //$lastProcessedDate = new Carbon($lastProcessedDate->action_time);
-        $lastProcessedDate = new Carbon('2 feb 2017');
+        $lastProcessedDate = new Carbon($lastProcessedDate->action_time);
+        //$lastProcessedDate = new Carbon('2 feb 2017');
         $currentDate = Carbon::now();
 
         // Process all the entries from that date on to current day
         while ($lastProcessedDate < $currentDate) {
+            $arr = [];
 
             $dayStart = new Carbon($lastProcessedDate->format("Y-m-d") . " 00:00:00", self::timezone);
             $dayStart->tz('UTC');
 
             $dayEnd = new Carbon($lastProcessedDate->format("Y-m-d") . " 23:59:59", self::timezone);
             $dayEnd->tz('UTC');
-
 
             $officialDayStart = new Carbon($lastProcessedDate->format("Y-m-d") . " " . self::dayStart, self::timezone);
             $officialDayStart->tz('UTC');
@@ -90,6 +90,7 @@ class LeaveTransaction extends Command
             $query = Attendance::whereIn('action_type', ['LOGIN', 'LOGOUT'])
                 ->where('action_time', '>=', $dayStart)
                 ->where('action_time', '<=', $dayEnd)
+                ->where('status', '=', "PENDING")
                 ->orderBy('user_id', 'asc')
                 ->orderBy('action_time', 'asc');
             $loginDetails = $query->get();
@@ -127,36 +128,98 @@ class LeaveTransaction extends Command
                 }
             }
 
+            foreach ($arr as $userId => &$userAttendance) {
+                $userAttendance = array_values($userAttendance);
+            }
+
             foreach ($arr as $userId => $userAttendance) {
 
-                $isFullDay = false;
                 $hasLoginBeforeOfficialStart = !!count(array_filter($userAttendance, function ($attendance) use ($officialDayStartWithBuffer) {
                     return $attendance["action_type"] == "LOGIN" && new Carbon($attendance["action_time"]) <= $officialDayStartWithBuffer;
+                }));
+                $hasLoginAfterOfficialStart = !!count(array_filter($userAttendance, function ($attendance) use ($officialDayStartWithBuffer) {
+                    return $attendance["action_type"] == "LOGIN" && new Carbon($attendance["action_time"]) > $officialDayStartWithBuffer;
                 }));
 
                 $hasLogoutAfterOfficialEnd = !!count(array_filter($userAttendance, function ($attendance) use ($officialDayEndWithBuffer) {
                     return $attendance["action_type"] == "LOGOUT" && new Carbon($attendance["action_time"]) >= $officialDayEndWithBuffer;
                 }));
+                $hasLogoutBeforeOfficialEnd = !!count(array_filter($userAttendance, function ($attendance) use ($officialDayEndWithBuffer) {
+                    return $attendance["action_type"] == "LOGOUT" && new Carbon($attendance["action_time"]) < $officialDayEndWithBuffer;
+                }));
 
-                if ($hasLoginBeforeOfficialStart && $hasLogoutAfterOfficialEnd) {
-                    $isFullDay = true;
+                $timespent = 0;
+                for ($i = 0; $i < count($userAttendance); $i = $i + 2) {
+                    $login = $userAttendance[$i];
+                    $logout = $userAttendance[$i + 1];
+                    if ($login["action_type"] !== "LOGIN" || $logout["action_type"] !== "LOGOUT") {
+                        die("An error has occurred, invalid array for user attendance");
+                    }
+                    $loginDateTime = Carbon::parse($login['action_time']);
+                    $logoutDateTime = Carbon::parse($logout['action_time']);
+                    $timespent = $logoutDateTime->diffInMinutes($loginDateTime);
+                }
 
-                    $temp1 = Carbon::parse($userAttendance[1]['action_time']);
-                    $temp2 = Carbon::parse($userAttendance[0]['action_time']);
-                    $temp = $temp1->diffInHours($temp2);
-                    
-                    dd($temp);
+                $isFullDay = $hasLoginBeforeOfficialStart && $hasLogoutAfterOfficialEnd && $timespent > 480;
+                $isHalfDay = !$isFullDay && $timespent > 240;
+                $isFirstHalf = !$isFullDay && $hasLoginBeforeOfficialStart && $hasLogoutBeforeOfficialEnd;
+                $isSecondHalf = !$isFullDay && $hasLoginAfterOfficialStart && $hasLogoutAfterOfficialEnd;
+
+                /*
+                 * If user physically present on particular day than
+                 * add 0.0714 to leave transaction table. (calculate PL = 1/14)
+                 * No matter $isFullDay, $isFirstHalf, $isSecondHalf, $isHalfDay
+                 */
+
+                $privilegeObject = new \App\LeaveTransaction();
+                $privilegeData = \App\LeaveTransaction::where('user_id', '=', $login['user_id'])
+                    ->where('leave_type', '=', 'PRIVILEGE LEAVE')
+                    ->orderBy('id', 'desc')
+                    ->first();
+                if ($privilegeData) {
+                    $privilegeLedger = $privilegeData['ledger'];
+                } else {
+                    $privilegeLedger = 0;
+                }
+                $privilegeObject->user_id = $login['user_id'];
+                $privilegeObject->leave_type = 'PRIVILEGE LEAVE';
+                $privilegeObject->value = 0.0714;
+                $privilegeObject->type = 'CREDIT';
+                $privilegeObject->ledger = $privilegeObject->value + $privilegeLedger;
+
+                $privilegeObject->save();
+
+                /*
+                 * After processed PENDING entries the status of that user entry into
+                 * Attendance table should be change to APPROVED.
+                 */
+
+                $attendanceObject = Attendance::where('user_id', '=', $login['user_id'])
+                    ->get();
+                foreach ($attendanceObject as $attendance) {
+                    $attendance->status = "APPROVED";
+                    $attendance->save();
                 }
             }
-
+            $lastProcessedDate = $lastProcessedDate->addDay(1);
         }
+        //dd($arr);
     }
+
+    /*
+     * If User Joining Date is equal to 3 months than
+     * add +5 casual leave as well as +5 sick leave
+     */
 
     public function sickCasualLeaves()
     {
-        $users = User::where('doj', '=', Carbon::now()->subMonth(+3)->toDateString())->get();
+        $users = User::where('doj', '=', Carbon::now()->subMonth(+3)->toDateString())
+            ->get();
 
         foreach ($users as $user) {
+            /*
+             * Sick Leave
+             */
             $sickObject = new \App\LeaveTransaction();
             $sickLeaveData = \App\LeaveTransaction::where('user_id', '=', $user->id)
                 ->where('leave_type', '=', 'SICK LEAVE')
@@ -173,25 +236,28 @@ class LeaveTransaction extends Command
             $sickObject->ledger = $sickObject->value + $sickLeaveLedger;
 
             $sickObject->save();
+
+            /*
+             * Casual Leave
+             */
+            $casualObject = new \App\LeaveTransaction();
+            $casualLeaveData = \App\LeaveTransaction::where('user_id', '=', $user->id)
+                ->where('leave_type', '=', 'CASUAL LEAVE')
+                ->get();
+            if ($casualLeaveData->toArray()) {
+                $casualLeaveLedger = $casualLeaveData[0]->ledger;
+            } else {
+                $casualLeaveLedger = 0;
+            }
+
+            $casualObject->user_id = $user->id;
+            $casualObject->leave_type = 'CASUAL LEAVE';
+            $casualObject->value = 5;
+            $casualObject->type = 'CREDIT';
+            $casualObject->ledger = $casualObject->value + $casualLeaveLedger;
+
+            $casualObject->save();
+
         }
-
-        $casualObject = new \App\LeaveTransaction();
-        $casualLeaveData = \App\LeaveTransaction::where('user_id', '=', $user->id)
-            ->where('leave_type', '=', 'CASUAL LEAVE')
-            ->get();
-        if ($casualLeaveData->toArray()) {
-            $casualLeaveLedger = $casualLeaveData[0]->ledger;
-        } else {
-            $casualLeaveLedger = 0;
-        }
-
-        $casualObject->user_id = $user->id;
-        $casualObject->leave_type = 'CASUAL LEAVE';
-        $casualObject->value = 5;
-        $casualObject->type = 'CREDIT';
-        $casualObject->ledger = $casualObject->value + $casualLeaveLedger;
-
-        $casualObject->save();
-
     }
 }

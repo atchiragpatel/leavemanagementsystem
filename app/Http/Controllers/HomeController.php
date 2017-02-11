@@ -16,8 +16,6 @@ class HomeController extends Controller
 {
     /**
      * Create a new controller instance.
-     *
-     * @return void
      */
 
     public function __construct()
@@ -35,7 +33,7 @@ class HomeController extends Controller
         //dd($this->calcAbsoluteLeaves('PRIVILEGE LEAVE', 1));
         //$days90 = Carbon::now()->addDays(90);
         //dd($this->calcAbsoluteLeaves('SICK', 1));
-        //$this->calcBalancedLeave("PRIVILEGE LEAVE", 13, 29);
+        //dd($this->calculatedPl(1));
         return view('home');
     }
 
@@ -55,8 +53,12 @@ class HomeController extends Controller
         $users->doj = $request->doj;
         $users->email = $request->email;
         $users->password = bcrypt($request->password);
+        $users->leave_taken_till_date = $request->leave_taken_till_date;
 
         $users->save();
+        //If User Joining date is less then 3 months
+        // Sick Leave & Casual Leave = 2
+        // Privilege Leave = 0
         if ($users->doj > Carbon::now()->subMonth(+3)->toDateString()) {
             $leave = new LeaveTransaction();
 
@@ -87,7 +89,11 @@ class HomeController extends Controller
             $leave->ledger = $leave->value;
 
             $leave->save();
-        } elseif ($users->doj < Carbon::now()->subMonth(+3)->toDateString()) {
+        }
+        //If User Joining date is greater then 3 months
+        // Sick Leave & Casual leave = 7
+        // Privilege Leave  = Totaldays / 30 * 1.5.
+        elseif ($users->doj < Carbon::now()->subMonth(+3)->toDateString()) {
             $leave = new LeaveTransaction();
 
             $leave->user_id = $users->id;
@@ -108,24 +114,23 @@ class HomeController extends Controller
 
             $leave->save();
 
-//            $endDate = Carbon::parse($users->doj);
-//
-//            $currentDate = Carbon::now();
-//            $days = $endDate->diffInDays($currentDate);
-//
-//            $calculateByDays = $days/30;
-//            $absolutePrivilegeLeave = $calculateByDays * 1.5;
-//
-//            $leave = new LeaveTransaction();
-//
-//            $leave->user_id = $users->id;
-//            $leave->leave_type = 'PRIVILEGE LEAVE';
-//            $leave->value = $absolutePrivilegeLeave;
-//            $leave->type = 'CREDIT';
-//            $leave->ledger = $leave->value;
-//
-//            $leave->save();
+            $endDate = Carbon::parse($users->doj);
 
+            $currentDate = Carbon::now();
+            $days = $endDate->diffInDays($currentDate);
+
+            $calculateByDays = $days / 30;
+            $absolutePrivilegeLeave = $calculateByDays * 1.5;
+
+            $leave = new LeaveTransaction();
+
+            $leave->user_id = $users->id;
+            $leave->leave_type = 'PRIVILEGE LEAVE';
+            $leave->value = $absolutePrivilegeLeave;
+            $leave->type = 'CREDIT';
+            $leave->ledger = $leave->value;
+
+            $leave->save();
         }
 
         return redirect('listemployee');
@@ -156,67 +161,6 @@ class HomeController extends Controller
 
         $userData->save();
 
-//        $leaveUpdate = LeaveTransaction::where('user_id', '=', $id)->get();
-//        foreach ($leaveUpdate as $leaveUpdateData) {
-//            if ($userData->doj > Carbon::now()->subMonth(+3)->toDateString()) {
-//                switch ($leaveUpdateData->leave_type) {
-//                    case 'SICK LEAVE':
-//                        $editSickLeaveValue = LeaveTransaction::where('user_id', '=', $id)
-//                            ->where('leave_type', '=', 'SICK LEAVE')
-//                            ->groupby('user_id')
-//                            ->get();
-//                        $editSickLeaveValue->user_id = $request->id;
-//                        $editSickLeaveValue->leave_type = "SICK LEAVE";
-//                        $editSickLeaveValue->value = 2;
-//                        $editSickLeaveValue->type = "CREDIT";
-//                        $editSickLeaveValue->ledger = $editSickLeaveValue->value;
-//
-//                        $editSickLeaveValue->save();
-//                        break;
-//                    case 'CASUAL LEAVE':
-//                        $editCasualLeaveValue = LeaveTransaction::where('user_id', '=', $id)
-//                            ->where('leave_type', '=', 'CASUAL LEAVE')
-//                            ->groupby('user_id')
-//                            ->get();
-//                        $editCasualLeaveValue->user_id = $request->id;
-//                        $editCasualLeaveValue->leave_type = "CASUAL LEAVE";
-//                        $editCasualLeaveValue->value = 2;
-//                        $editCasualLeaveValue->type = "CREDIT";
-//                        $editCasualLeaveValue->ledger = $editCasualLeaveValue->value;
-//
-//                        $editCasualLeaveValue->save();
-//                }
-//            } elseif ($userData->doj >= Carbon::now()->subMonth(+3)->toDateString()) {
-//                switch ($leaveUpdateData->leave_type) {
-//                    case 'SICK LEAVE':
-//                        $editSickLeaveValue = LeaveTransaction::where('user_id', '=', $id)
-//                            ->where('leave_type', '=', 'SICK LEAVE')
-//                            ->groupby('user_id')
-//                            ->get();
-//                        $editSickLeaveValue->user_id = $request->id;
-//                        $editSickLeaveValue->leave_type = "SICK LEAVE";
-//                        $editSickLeaveValue->value = 7;
-//                        $editSickLeaveValue->type = "CREDIT";
-//                        $editSickLeaveValue->ledger = $editSickLeaveValue->value;
-//
-//                        $editSickLeaveValue->save();
-//                        break;
-//                    case 'CASUAL LEAVE':
-//                        $editCasualLeaveValue = LeaveTransaction::where('user_id', '=', $id)
-//                            ->where('leave_type', '=', 'CASUAL LEAVE')
-//                            ->groupby('user_id')
-//                            ->get();
-//                        $editCasualLeaveValue->user_id = $request->id;
-//                        $editCasualLeaveValue->leave_type = "CASUAL LEAVE";
-//                        $editCasualLeaveValue->value = 7;
-//                        $editCasualLeaveValue->type = "CREDIT";
-//                        $editCasualLeaveValue->ledger = $editCasualLeaveValue->value;
-//
-//                        $editCasualLeaveValue->save();
-//                }
-//            }
-//        }
-
         return redirect('listemployee');
     }
 
@@ -243,7 +187,7 @@ class HomeController extends Controller
     {
 
         // Get current date
-        $currentDate =  Carbon::now();
+        $currentDate = Carbon::now();
 
         // Try to parse given date with Carbon
         try {
@@ -252,7 +196,7 @@ class HomeController extends Controller
             if (!$dateString) {
                 throw new \Exception("No joining date of user");
             }
-            $date =  new Carbon($dateString);
+            $date = new Carbon($dateString);
         } catch (\Exception $ex) {
             // on error or invalid date return 0
             return 0;
@@ -269,7 +213,7 @@ class HomeController extends Controller
             case "CASUAL LEAVE":
                 // If provided date is less than three months than return 2
                 // else on exact 90 days return 5 or else return 7
-                return $diff < 90 ? 2: ($diff == 90 ? 5 : 7);
+                return $diff < 90 ? 2 : ($diff == 90 ? 5 : 7);
                 break;
             case "PRIVILEGE LEAVE":
                 // No privilege leave should be granted within 3 months of tenure
@@ -278,7 +222,7 @@ class HomeController extends Controller
                 }
 
                 // Get first entry from database logs
-                $firstLog = Attendance::where('user_id','=',$userId)->first();
+                $firstLog = Attendance::where('user_id', '=', $userId)->first();
 
                 // Get the difference of days from the non-logged days
                 // i.e. JD - ( First Log date - 1) in days difference
@@ -291,9 +235,9 @@ class HomeController extends Controller
                 // Get the ledger balance (y) of requested leave and add it to the calculation
                 // Thus total is (x *1.5/30) + y
                 // Return this value
-                $latestLedger = LeaveTransaction::where('user_id','=',$userId)
+                $latestLedger = LeaveTransaction::where('user_id', '=', $userId)
                     ->where('leave_type', '=', $type)
-                    ->orderBy('id','desc')
+                    ->orderBy('id', 'desc')
                     ->first()->ledger;
                 return $absoluteLeave + $latestLedger;
                 break;
@@ -303,23 +247,31 @@ class HomeController extends Controller
         }
     }
 
-    public function calcBalancedLeave($type, $taken, $ledger)
+    /**
+     * @param $userId
+     */
+    public function calculatedPl($userId)
     {
-        switch ($type) {
-            case "SICK LEAVE":
-                $totalSickLeave = $ledger - $taken;
-                echo $totalSickLeave;
-                break;
-            case "CASUAL LEAVE":
-                $totalCasualLeave = $ledger - $taken;
-                echo $totalCasualLeave;
-                break;
-            case "PRIVILEGE LEAVE":
-                $totalPrivilegeLeave = $ledger - $taken;
-                echo $totalPrivilegeLeave;
-                break;
-            default:
-                echo "No leave Taken";
-        }
+        //Get user latest ledger
+        $userLedger = LeaveTransaction::where('user_id', '=', $userId)
+            ->where('leave_type', '=', 'PRIVILEGE LEAVE')
+            ->orderBy('id', 'desc')
+            ->first()->ledger;
+
+        //Find Taken Leave from user table and subtract with user final privilege ledger
+        $takenLeave = \App\User::find($userId)->leave_taken_till_date;
+
+        return $userLedger - $takenLeave;
+
+    }
+
+    public function getLastLogoutDateOfUser()
+    {
+
+    }
+
+    public function calcUserUninformedAbsense()
+    {
+
     }
 }
