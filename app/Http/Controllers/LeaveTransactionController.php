@@ -6,7 +6,6 @@ use App\Holiday;
 use App\Http\Requests\LeaveRequest;
 use App\LeaveTransaction;
 use Carbon\Carbon;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
 class LeaveTransactionController extends Controller
