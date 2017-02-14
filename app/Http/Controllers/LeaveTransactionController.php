@@ -129,6 +129,10 @@ class LeaveTransactionController extends Controller
         $oddSaturdayThird = Carbon::parse('third saturday of this month');
         $evenSaturdayFourth = Carbon::parse('fourth saturday of this month');
         $oddSaturdayFifth = Carbon::parse('fifth saturday of this month');
+        $fromSatSun = 0;
+        $toSatSun = 0;
+        $countHolidayFrom = 0;
+        $countHolidayTo = 0;
 
         /*
          * Calculate the total number of days (FROM_DATE to TO_DATE)
@@ -159,17 +163,50 @@ class LeaveTransactionController extends Controller
             $toDate = new Carbon($to_date);
         } while ($toDay->toArray());
 
+        /*----------------------------------- FOR FROM DATE -----------------------------------*/
+
         /*
-         * To check IS Sat&Sun AND any Festival before leave apply FROM_DATE
+         * Below calculation is for $fromDate
+         * To check any Festival before $fromDate
          */
 
+        /*
+         * $tempFromDate is the date which include sandwitch days
+         */
         $tempFromDate = new Carbon($from_date);
-        if ($fromDate->subDay(1)->isSunday()) {
+
+        /*
+         * To check if from day before one day is not sunday
+         * not odd saturday
+         * but is holiday
+         */
+        $fromHoliday = Holiday::where('festivaldate', 'like', $fromDate->subDay(1)->toDateString())->get();
+        if (!$fromHoliday->toArray()) {
+            $fromDate = new Carbon($from_date);
+        }
+        /*
+         * To check ($fromdate - 1) is holiday
+         */
+        if ($fromHoliday->toArray()) {
+            $countHolidayFrom = 0;
+            do {
+                $countHolidayFrom++;
+                $tempFromHolidayQuery = Holiday::where('festivaldate', 'like', $fromDate->subDay($countHolidayFrom)->toDateString())->get();
+                $tempFromDate = $fromDate->toDateString();
+                $fromDate = new Carbon($from_date);
+            } while ($tempFromHolidayQuery->toArray());
+        } /*
+         * To check $fromdate is sunday
+         */
+        elseif ($fromDate->isSunday()) {
+            /*
+             * To check ($fromdate - 1) is odd saturday
+             */
             if ($fromDate->subDay(1) == $oddSaturdayFirst || $fromDate == $oddSaturdayThird || $fromDate == $oddSaturdayFifth) {
                 /*
                  * Do Not Forgot to subtract 1 from the final value
                  */
-                $fromSatSun = 2;
+                $fromSatSun = 1;
                 //$temp = $fromSatSun;
                 $temp = 0;
                 do {
@@ -180,9 +217,12 @@ class LeaveTransactionController extends Controller
                 } while ($tempFromSatSunQuery->toArray());
                 $fromSatSun = $fromSatSun + ($temp - 1);
             } else {
-                $fromSatSun = 1;
+                $fromSatSun = 0;
             }
-        } elseif ($fromDate == $oddSaturdayFirst || $fromDate == $oddSaturdayThird || $fromDate == $oddSaturdayFifth) {
+        } /*
+         * To check $fromdate is odd saturday
+         */
+        elseif ($fromDate == $oddSaturdayFirst || $fromDate == $oddSaturdayThird || $fromDate == $oddSaturdayFifth) {
             $fromSatSun = 1;
             //$temp = $fromSatSun;
             $temp = 0;
@@ -196,13 +236,48 @@ class LeaveTransactionController extends Controller
             $fromSatSun = $fromSatSun + ($temp - 1);
         } else {
             $fromSatSun = 0;
+            $tempFromDate->subDay(1);
         }
+        $newTempFromDate = new Carbon($tempFromDate);
+        $newTempFromDate->addDay(1);
+
+        /*----------------------------------- FOR TO DATE -----------------------------------*/
+
         /*
-         * To check IS Sat&Sun AND any Festival after leave apply TO_DATE
+         * Below calculation is for $todate
+         * To check Is Sat&Sun AND any Festival come after leave apply
+         */
+
+        /*
+         * $tempToDate is the date which include sandwitch days
          */
 
         $tempToDate = new Carbon($to_date);
-        if (($toDate->addDay(1)->isSaturday()) && ($toDate == $oddSaturdayFirst || $toDate == $oddSaturdayThird || $toDate == $oddSaturdayFifth)) {
+
+        /*
+         * To check if $todate after one day is not sunday
+         * not odd saturday
+         * but is holiday
+         */
+        $toHoliday = Holiday::where('festivaldate', 'like', $toDate->addDay(1)->toDateString())->get();
+        if (!$toHoliday->toArray()) {
+            $toDate = new Carbon($to_date);
+        }
+        /*
+         * To check ($todate + 1) is holiday
+         */
+        if ($toHoliday->toArray()) {
+            $countHolidayTo = 0;
+            do {
+                $countHolidayTo++;
+                $tempToHolidayQuery = Holiday::where('festivaldate', 'like', $fromDate->addDay($countHolidayTo)->toDateString())->get();
+                $tempToDate = $toDate->toDateString();
+                $toDate = new Carbon($to_date);
+            } while ($tempToHolidayQuery->toArray());
+        } /*
+         * To check $todate is saturday
+         */
+        elseif (($toDate->addDay(1)->isSaturday()) && ($toDate == $oddSaturdayFirst || $toDate == $oddSaturdayThird || $toDate == $oddSaturdayFifth)) {
             /*
              * Do Not Forgot to subtract 1 from the final value
              */
@@ -212,27 +287,49 @@ class LeaveTransactionController extends Controller
             do {
                 $temp++;
                 $tempToSatSunQuery = Holiday::where('festivaldate', 'like', $toDate->addDay($temp)->toDateString())->get();
-                $tempToDate = $fromDate->addDay($temp)->toDateString();
+                $tempToDate = $toDate->addDay($temp)->toDateString();
                 $toDate = new Carbon($to_date);
             } while ($tempToSatSunQuery->toArray());
             $toSatSun = $toSatSun + ($temp - 1);
-        } else if ($toDate->isSunday()) {
+        } /*
+         * To check ($todate - 1) is sunday
+         */
+        else if ($toDate->isSunday()) {
             $toSatSun = 1;
             //$temp = $toSatSun;
             $temp = 0;
             do {
                 $temp++;
                 $tempToSatSunQuery = Holiday::where('festivaldate', 'like', $toDate->addDay($temp)->toDateString())->get();
-                $tempToDate = $toDate->toDateString();
+                $tempToDate = $toDate->subDay(1)->toDateString();
                 $toDate = new Carbon($to_date);
             } while ($tempToSatSunQuery->toArray());
             $toSatSun = $toSatSun + ($temp - 1);
-            return $toSatSun;
         } else {
             $toSatSun = 0;
         }
+        /*
+         * To check is any even saturdays come in between $newTempFromDate and $tempToDate
+         */
 
-        $totalLeave = $value + ($countFromDay - 1) + ($countToDay - 1) + $fromSatSun + $toSatSun;
+        $start = new Carbon($newTempFromDate);
+        $end = new Carbon($tempToDate);
+        $count = 0;
+        $evenSat = 0;
+
+        for ($i = $start; $i != $end; $i->addDay(1)) {
+            $count++;
+            if (($newTempFromDate == $evenSaturdaySecond) || ($newTempFromDate == $evenSaturdayFourth)) {
+                $evenSat++;
+            }
+            $newTempFromDate->addDay(1);
+        }
+
+        /*
+         * This is the total leave including Value(official leave fromdate + todate)
+         */
+
+        $totalLeave = $value + ($countFromDay - 1) + ($countToDay - 1) + $fromSatSun + $toSatSun + ($countHolidayFrom - 1) + ($countHolidayTo - 1) + $evenSat;
 
         /*
          * To check total leave is greater than applied leave

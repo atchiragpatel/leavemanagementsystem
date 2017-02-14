@@ -48,8 +48,6 @@ Route::get('/deletebankdetails/{id}', 'UserController@deleteBankDetails');
 Route::get('/updatebankdetails/{id}', 'UserController@updateBankDetails');
 Route::post('/storeupdatedbankdetails/{id}', 'UserController@storeUpdatedBankDetails');
 
-//User Documents Routes
-//Route::get('/listofdocuments', 'UserDocumnets@DocumnetsList');
 
 //User Leave Routes
 Route::get('/applyforleave', 'LeaveTransactionController@applyForLeave');
