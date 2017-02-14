@@ -270,7 +270,7 @@ class HomeController extends Controller
 
     }
 
-    public function calcUserUninformedAbsense()
+    public function calcUserUninformedAbsence()
     {
 
     }
