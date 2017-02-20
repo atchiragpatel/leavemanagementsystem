@@ -126,8 +126,8 @@
                         privilege_leave: parseFloat(document.getElementById('privilegeleave').textContent)
                     },
                     success: function (data) {
-                        //alert(data);
-                        $("#displayData").text(data);
+                        alert(data);
+                        //$("#displayData").text(data);
                     }
                 });
             });

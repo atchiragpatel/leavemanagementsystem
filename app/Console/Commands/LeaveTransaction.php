@@ -2,10 +2,13 @@
 
 namespace App\Console\Commands;
 
+use App\Holiday;
+use App\Request;
 use App\User;
 use App\Attendance;
 use Carbon\Carbon;
 use Illuminate\Console\Command;
+use Illuminate\Support\Facades\Auth;
 
 class LeaveTransaction extends Command
 {
@@ -41,6 +44,7 @@ class LeaveTransaction extends Command
      */
     public function handle()
     {
+        $this->calcUserUninformedAbsence();
         // Get the last date that has status PENDING
         // Create new date with that date time
         // Loop through the date by adding 1 more day and calculate the leaves accordingly
@@ -149,6 +153,7 @@ class LeaveTransaction extends Command
                 }));
 
                 $timespent = 0;
+                $login = [];
                 for ($i = 0; $i < count($userAttendance); $i = $i + 2) {
                     $login = $userAttendance[$i];
                     $logout = $userAttendance[$i + 1];
@@ -258,6 +263,116 @@ class LeaveTransaction extends Command
 
             $casualObject->save();
 
+        }
+    }
+
+    /*
+     * This function is for calculate the employee uninformed leave
+     */
+    public function calcUserUninformedAbsence()
+    {
+        /*
+         * this is odd Saturday of current month
+         */
+        $OddSaturdayFirst = Carbon::parse('first saturday of this month');
+        $OddSaturdayThird = Carbon::parse('third saturday of this month');
+        $OddSaturdayFifth = Carbon::parse('fifth saturday of this month');
+
+        $checkHoliday = Holiday::where('festivaldate', '=', Carbon::now()->toDateString())
+            ->get();
+        /*
+         * if today is not oddSaturday or not sunday than execute below code
+         */
+        if ((Carbon::now() != $OddSaturdayFirst || Carbon::now() != $OddSaturdayThird || Carbon::now() != $OddSaturdayFifth) || (!Carbon::now()->isSunday()) || (!$checkHoliday)) {
+            /*
+             * Fetch all users
+             */
+            $users = User::all();
+            foreach ($users as $user) {
+                $userId = $user->id;
+                /*
+                 * check login.
+                 */
+                $checkLogin = Attendance::where('user_id', '=', $userId)
+                    ->where('action_type', '=', 'LOGIN')
+                    ->where('action_time', 'like', Carbon::now()->toDateString() . '%')
+                    ->orderBy('id', 'DESC')
+                    ->first();
+                /*
+                 * check logout.
+                 */
+                $checkLogout = Attendance::where('user_id', '=', $userId)
+                    ->where('action_type', '=', 'LOGOUT')
+                    ->where('action_time', 'like', Carbon::now()->toDateString() . '%')
+                    ->orderBy('id', 'DESC')
+                    ->first();
+                /*
+                 * if employee's login and logout time is not in database for particular day
+                 * than execute below code.
+                 */
+                if (!$checkLogin && !$checkLogout) {
+                    $checkLeave = Request::where('user_id', '=', $userId)
+                        ->where('from_date', '<=', Carbon::now()->toDateString())
+                        ->where('to_date', '>=', Carbon::now()->toDateString())
+                        ->where('status', '=', 'APPROVED')
+                        ->get();
+                    if (!$checkLeave) {
+                        /*
+                     * Fetch latest privilege ledger of particular employee
+                     */
+                        $leaveData = \App\LeaveTransaction::where('user_id', '=', $userId)
+                            ->where('leave_type', '=', 'PRIVILEGE LEAVE')
+                            ->orderBy('id', 'DESC')
+                            ->first();
+                        if ($leaveData) {
+                            $privilegeLedger = $leaveData->ledger;
+                            if ($privilegeLedger >= 2) {
+
+                                $unInformedLeave = new \App\LeaveTransaction();
+                                $unInformedLeave->user_id = $userId;
+                                $unInformedLeave->leave_type = 'PRIVILEGE LEAVE';
+                                $unInformedLeave->value = 2;
+                                $unInformedLeave->type = 'DEBIT';
+                                $unInformedLeave->ledger = $privilegeLedger - 2;
+                                $unInformedLeave->save();
+
+                            } elseif ($privilegeLedger == 0) {
+
+                                $unInformedLeave = new \App\LeaveTransaction();
+                                $unInformedLeave->user_id = $userId;
+                                $unInformedLeave->leave_type = 'LEAVE WITHOUT PAY';
+                                $unInformedLeave->value = 2;
+                                $unInformedLeave->type = 'DEBIT';
+                                $unInformedLeave->ledger = 0;
+                                $unInformedLeave->save();
+
+                            } else {
+
+                                $remainingPrivilegeLedger = 2 - $privilegeLedger;
+
+                                $unInformedLeave = new \App\LeaveTransaction();
+                                $unInformedLeave->user_id = $userId;
+                                $unInformedLeave->leave_type = 'LEAVE WITHOUT PAY';
+                                $unInformedLeave->value = $remainingPrivilegeLedger;
+                                $unInformedLeave->type = 'DEBIT';
+                                $unInformedLeave->ledger = 0;
+                                $unInformedLeave->save();
+
+                                $unInformedLeave = new \App\LeaveTransaction();
+                                $unInformedLeave->user_id = $userId;
+                                $unInformedLeave->leave_type = 'PRIVILEGE LEAVE';
+                                $unInformedLeave->value = $remainingPrivilegeLedger;
+                                $unInformedLeave->type = 'DEBIT';
+                                $unInformedLeave->ledger = $remainingPrivilegeLedger - $unInformedLeave->value;
+                                $unInformedLeave->save();
+
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            return true;
         }
     }
 }

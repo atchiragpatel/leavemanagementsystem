@@ -57,6 +57,7 @@ Route::post('/submitleave', 'LeaveTransactionController@submitLeave');
  * This Route is for admin where admin can see the leave request
  */
 Route::get('/leaverequest', 'LeaveTransactionController@leaveRequest');
+Route::get('/appliedleaves', 'LeaveTransactionController@leaveApplied');
 Route::get('/leaveapprove/{id}', 'LeaveTransactionController@leaveApprove');
 Route::get('/leavereject/{id}', 'LeaveTransactionController@leaveReject');
 /*

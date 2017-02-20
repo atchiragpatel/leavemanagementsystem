@@ -42,6 +42,9 @@
                             Apply For Leave <a href="applyforleave" class="btn btn-primary pull-right mb-2 mt-2">Apply For Leave</a>
                         </div>
                         <div class="panel-body">
+                            Applied Leaves <a href="appliedleaves" class="btn btn-primary pull-right mb-2 mt-2">Applied Leaves</a>
+                        </div>
+                        <div class="panel-body">
                             View Leave Policy <a href="leavepolicy" class="btn btn-primary pull-right mb-2 mt-2">Leave Policy</a>
                         </div>
                     </div>

@@ -89,10 +89,11 @@ class HomeController extends Controller
             $leave->ledger = $leave->value;
 
             $leave->save();
-        }
-        //If User Joining date is greater then 3 months
-        // Sick Leave & Casual leave = 7
-        // Privilege Leave  = Totaldays / 30 * 1.5.
+        } /*
+         * If User Joining date is greater then 3 months
+         * Sick Leave & Casual leave = 7
+         * Privilege Leave  = Totaldays / 30 * 1.5.
+         */
         elseif ($users->doj < Carbon::now()->subMonth(+3)->toDateString()) {
             $leave = new LeaveTransaction();
 
@@ -262,16 +263,6 @@ class HomeController extends Controller
         $takenLeave = \App\User::find($userId)->leave_taken_till_date;
 
         return $userLedger - $takenLeave;
-
-    }
-
-    public function getLastLogoutDateOfUser()
-    {
-
-    }
-
-    public function calcUserUninformedAbsence()
-    {
 
     }
 }

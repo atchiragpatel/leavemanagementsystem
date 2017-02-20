@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Holiday;
 use App\Http\Requests\LeaveRequest;
 use App\LeaveTransaction;
+use App\Request;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 
@@ -34,7 +35,7 @@ class LeaveTransactionController extends Controller
                             ->first()->ledger;
                         break;
                     default:
-                        echo "No leaves remaining for you";
+                        echo "";
                 }
             }
         }
@@ -49,7 +50,6 @@ class LeaveTransactionController extends Controller
 
     public function submitLeave(LeaveRequest $request)
     {
-        dd('chirag');
         /*
          * Calculation for to_date to from_date
          * for total days.
@@ -89,6 +89,14 @@ class LeaveTransactionController extends Controller
         return view('employee.leaverequest')->with('leaverequest', $leaveRequest);
     }
 
+    public function leaveApplied()
+    {
+        $userId = Auth::user()->id;
+        $leaveApplied = Request::where('user_id', '=', $userId)
+            ->get();
+        return view('employee.appliedleaves')->with('leaveapplied', $leaveApplied);
+    }
+
     public function leaveApprove($id)
     {
         $leave = \App\Request::find($id);
@@ -109,6 +117,9 @@ class LeaveTransactionController extends Controller
         return redirect('leaverequest');
     }
 
+    /*
+     * This function is for leave calculation
+     */
     public function isSandwitch()
     {
         $from_date = $_GET['from_date'];
@@ -123,11 +134,31 @@ class LeaveTransactionController extends Controller
         /*
          * This is for EVEN and ODD Saturday calculation
          */
-        $oddSaturdayFirst = Carbon::parse('first saturday of this month');
-        $evenSaturdaySecond = Carbon::parse('second saturday of this month');
-        $oddSaturdayThird = Carbon::parse('third saturday of this month');
-        $evenSaturdayFourth = Carbon::parse('fourth saturday of this month');
-        $oddSaturdayFifth = Carbon::parse('fifth saturday of this month');
+        $fromMonth = Carbon::parse($from_date)->format('F');
+        $toMonth = Carbon::parse($to_date)->format('F');
+
+        $fromOddSaturdayFirst = Carbon::parse('first saturday of ' . $fromMonth);
+        $fromEvenSaturdaySecond = Carbon::parse('second saturday of' . $fromMonth);
+        $fromOddSaturdayThird = Carbon::parse('third saturday of ' . $fromMonth);
+        $fromEvenSaturdayFourth = Carbon::parse('fourth saturday of ' . $fromMonth);
+        $fromOddSaturdayFifth = Carbon::parse('fifth saturday of ' . $fromMonth);
+
+
+        $toOddSaturdayFirst = Carbon::parse('first saturday of ' . $toMonth);
+        $toOddSaturdayThird = Carbon::parse('third saturday of ' . $toMonth);
+        $toOddSaturdayFifth = Carbon::parse('fifth saturday of ' . $toMonth);
+
+        /*
+         * This is for previous and next month EVEN and ODD Saturday calculation
+         */
+        $previousFromMonth = Carbon::parse($from_date)->subMonth(1)->format('F');
+        $nextToMonth = Carbon::parse($to_date)->addMonth(1)->format('F');
+
+        $fromPreviousMonthOddSaturdayFifth = Carbon::parse('fifth saturday of ' . $previousFromMonth);
+
+        $toNextMonthOddSaturdayFirst = Carbon::parse('first saturday of ' . $nextToMonth);
+
+
         $fromSatSun = 0;
         $toSatSun = 0;
         $countHolidayFrom = 0;
@@ -165,19 +196,19 @@ class LeaveTransactionController extends Controller
         /*----------------------------------- FOR FROM DATE -----------------------------------*/
 
         /*
-         * Below calculation is for $fromDate
-         * To check any Festival before $fromDate
+         * Below calculation is for $fromDate.
+         * To check any Festival IS coming before $fromDate.
          */
 
         /*
-         * $tempFromDate is the date which include sandwitch days
+         * $tempFromDate is the date which include sandwitch days.
          */
         $tempFromDate = new Carbon($from_date);
 
         /*
-         * To check if from day before one day is not sunday
-         * not odd saturday
-         * but is holiday
+         * To check if from day before one day is not sunday,
+         * not odd saturday,
+         * but is holiday.
          */
         $fromHoliday = Holiday::where('festivaldate', 'like', $fromDate->subDay(1)->toDateString())->get();
         if (!$fromHoliday->toArray()) {
@@ -194,18 +225,19 @@ class LeaveTransactionController extends Controller
                 $tempFromDate = $fromDate->toDateString();
                 $fromDate = new Carbon($from_date);
             } while ($tempFromHolidayQuery->toArray());
+            $countHolidayFrom--;
         } /*
          * To check $fromdate is sunday
          */
-        elseif ($fromDate->isSunday()) {
+        elseif ($fromDate->subDay(1)->isSunday()) {
             /*
              * To check ($fromdate - 1) is odd saturday
              */
-            if ($fromDate->subDay(1) == $oddSaturdayFirst || $fromDate == $oddSaturdayThird || $fromDate == $oddSaturdayFifth) {
+            if ($fromDate->subDay(1) == $fromOddSaturdayFirst || $fromDate == $fromOddSaturdayThird || $fromDate == $fromOddSaturdayFifth || $fromDate == $fromPreviousMonthOddSaturdayFifth) {
                 /*
                  * Do Not Forgot to subtract 1 from the final value
                  */
-                $fromSatSun = 1;
+                $fromSatSun = 2; //here i change the value from 1 to 2 for testing
                 //$temp = $fromSatSun;
                 $temp = 0;
                 do {
@@ -221,7 +253,7 @@ class LeaveTransactionController extends Controller
         } /*
          * To check $fromdate is odd saturday
          */
-        elseif ($fromDate == $oddSaturdayFirst || $fromDate == $oddSaturdayThird || $fromDate == $oddSaturdayFifth) {
+        elseif ($fromDate == $fromOddSaturdayFirst || $fromDate == $fromOddSaturdayThird || $fromDate == $fromOddSaturdayFifth) {
             $fromSatSun = 1;
             //$temp = $fromSatSun;
             $temp = 0;
@@ -252,7 +284,6 @@ class LeaveTransactionController extends Controller
          */
 
         $tempToDate = new Carbon($to_date);
-
         /*
          * To check if $todate after one day is not sunday
          * not odd saturday
@@ -273,10 +304,11 @@ class LeaveTransactionController extends Controller
                 $tempToDate = $toDate->toDateString();
                 $toDate = new Carbon($to_date);
             } while ($tempToHolidayQuery->toArray());
+            $countHolidayTo--;
         } /*
          * To check $todate is saturday
          */
-        elseif (($toDate->addDay(1)->isSaturday()) && ($toDate == $oddSaturdayFirst || $toDate == $oddSaturdayThird || $toDate == $oddSaturdayFifth)) {
+        elseif (($toDate->addDay(1)->isSaturday()) && ($toDate == $toOddSaturdayFirst || $toDate == $toOddSaturdayThird || $toDate == $toOddSaturdayFifth || $toDate == $toNextMonthOddSaturdayFirst)) {
             /*
              * Do Not Forgot to subtract 1 from the final value
              */
@@ -286,7 +318,7 @@ class LeaveTransactionController extends Controller
             do {
                 $temp++;
                 $tempToSatSunQuery = Holiday::where('festivaldate', 'like', $toDate->addDay($temp)->toDateString())->get();
-                $tempToDate = $toDate->addDay($temp)->toDateString();
+                $tempToDate = $toDate->toDateString();
                 $toDate = new Carbon($to_date);
             } while ($tempToSatSunQuery->toArray());
             $toSatSun = $toSatSun + ($temp - 1);
@@ -316,19 +348,17 @@ class LeaveTransactionController extends Controller
         $count = 0;
         $evenSat = 0;
 
-        for ($i = $start; $i != $end; $i->addDay(1)) {
+        for ($i = $start; $i <= $end; $i->addDay(1)) {
             $count++;
-            if (($newTempFromDate == $evenSaturdaySecond) || ($newTempFromDate == $evenSaturdayFourth)) {
+            if (($start == $fromEvenSaturdaySecond) || ($start == $fromEvenSaturdayFourth)) {
                 $evenSat++;
             }
             $newTempFromDate->addDay(1);
         }
-
         /*
          * This is the total leave including Value(official leave fromdate + todate)
          */
-
-        $totalLeave = $value + ($countFromDay - 1) + ($countToDay - 1) + $fromSatSun + $toSatSun + ($countHolidayFrom - 1) + ($countHolidayTo - 1) + $evenSat;
+        $totalLeave = $value + ($countFromDay - 1) + ($countToDay - 1) + $fromSatSun + $toSatSun + ($countHolidayFrom) + ($countHolidayTo) + $evenSat;
 
         /*
          * To check total leave is greater than applied leave
@@ -341,28 +371,85 @@ class LeaveTransactionController extends Controller
                 case ("SICK LEAVE"):
                     if ($value <= $sick_leave) {
                         $returnData[] = ["Deduct from sick leave =>" . ' ' . $value];
+//                        $returnData[] = [
+//                            "Type" => "SICK LEAVE",
+//                            "From Date" => $from_date,
+//                            "To Date" => $to_date,
+//                            "days" => $value,
+//                            "Note" => " ",
+//                        ];
                         if ($sandwitchLeave <= $privilege_leave) {
                             $returnData[] = "Deduct from privilege leave =>" . ' ' . $sandwitchLeave;
+//                            $returnData[] = [
+//                                "Type" => "PRIVILEGE LEAVE",
+//                                "From Date" => $from_date,
+//                                "To Date" => $to_date,
+//                                "days" => $sandwitchLeave,
+//                                "Note" => "SANDWITCH",
+//                            ];
                         } else {
                             $remainingLeave = $sandwitchLeave - $privilege_leave;
                             $returnData[] = [
                                 "Deduct from privilege leave =>" . ' ' . $privilege_leave,
                                 "Deduct from leave without pay =>" . ' ' . $remainingLeave
                             ];
+//                            $returnData[] = [
+//                                "Type" => "PRIVILEGE LEAVE",
+//                                "From Date" => $from_date,
+//                                "To Date" => $to_date,
+//                                "days" => $privilege_leave,
+//                                "Note" => "SANDWITCH",
+//                            ];
+//                            $returnData[] = [
+//                                "Type" => "LEAVE WITHOUT PAY",
+//                                "From Date" => $from_date,
+//                                "To Date" => $to_date,
+//                                "days" => $remainingLeave,
+//                                "Note" => "SANDWITCH",
+//                            ];
                         }
                     } elseif ($value > $sick_leave) {
                         $sickSandwitch = $value - $sick_leave;
                         $returnData[] = "Deduct from sick leave =>" . ' ' . $sick_leave;
+//                        $returnData[] = [
+//                            "Type" => "SICK LEAVE",
+//                            "From Date" => $from_date,
+//                            "To Date" => $to_date,
+//                            "days" => $sick_leave,
+//                            "Note" => " ",
+//                        ];
                         if (($sandwitchLeave + $sickSandwitch) <= $privilege_leave) {
                             $returnData[] = "Deduct from privilege leave =>" . ' ' . ($sandwitchLeave + $sickSandwitch);
+//                            $returnData[] = [
+//                                "Type" => "PRIVILEGE LEAVE",
+//                                "From Date" => $from_date,
+//                                "To Date" => $to_date,
+//                                "days" => ($sandwitchLeave + $sickSandwitch),
+//                                "Note" => "SANDWITCH",
+//                            ];
                         } else {
                             $remainingLeave = ($sandwitchLeave + $sickSandwitch) - $privilege_leave;
                             $returnData[] = [
                                 "Deduct from privilege leave =>" . ' ' . $privilege_leave,
                                 "Deduct from leave without pay =>" . ' ' . $remainingLeave
                             ];
+//                            $returnData[] = [
+//                                "Type" => "PRIVILEGE LEAVE",
+//                                "From Date" => $from_date,
+//                                "To Date" => $to_date,
+//                                "days" => $privilege_leave,
+//                                "Note" => "SANDWITCH",
+//                            ];
+//                            $returnData[] = [
+//                                "Type" => "LEAVE WITHOUT PAY",
+//                                "From Date" => $from_date,
+//                                "To Date" => $to_date,
+//                                "days" => $remainingLeave,
+//                                "Note" => " ",
+//                            ];
                         }
                     }
+//                    return json_encode($returnData);
                     return $returnData;
                     break;
                 case ("CASUAL LEAVE"):
@@ -413,6 +500,6 @@ class LeaveTransactionController extends Controller
                     return "Please select leave type";
             }
         }
-        return "Tu bachi gayo";
+        return "Deduct from $leave_type => $value";
     }
 }
